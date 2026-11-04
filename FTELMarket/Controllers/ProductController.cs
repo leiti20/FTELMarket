@@ -1,5 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
-
+﻿using FTELMarket.Infrastructure;
+using FTELMarket.Infrastructure.Entities;
+using FTELMarket.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace FTELMarket.Controllers
 {
@@ -7,72 +10,86 @@ namespace FTELMarket.Controllers
     [Route("api/products")]
     public class ProductsController : ControllerBase
     {
-        private static List<Product> _products = new List<Product>
+        private readonly FtelMarketDbContext _db;
+
+        public ProductsController(FtelMarketDbContext db)
         {
-            new Product { Id = 1, Name = "The Last of Us Part II", Description = "Boîte et notice, disque sans rayure.", Price = 19.9m, Stock = 3, CategoryId = 1, CreatedAt = DateTime.Parse("2026-09-02T09:15:00Z"), CategoryName = "PlayStation 5" },
-            new Product { Id = 2, Name = "Gran Turismo 7", Description = null, Price = 29.9m, Stock = 1, CategoryId = 1, CreatedAt = DateTime.Parse("2026-09-05T14:30:00Z"), CategoryName = "PlayStation 5" },
-            new Product { Id = 3, Name = "The Legend of Zelda: Tears of the Kingdom", Description = "Cartouche seule.", Price = 39.9m, Stock = 2, CategoryId = 2, CreatedAt = DateTime.Parse("2026-09-08T10:00:00Z"), CategoryName = "Nintendo Switch" },
-            new Product { Id = 4, Name = "Mario Kart 8 Deluxe", Description = "Complet, très bon état.", Price = 34.9m, Stock = 5, CategoryId = 2, CreatedAt = DateTime.Parse("2026-09-10T16:45:00Z"), CategoryName = "Nintendo Switch" },
-            new Product { Id = 5, Name = "Halo Infinite", Description = null, Price = 14.9m, Stock = 4, CategoryId = 3, CreatedAt = DateTime.Parse("2026-09-12T11:20:00Z"), CategoryName = "Xbox Series X" },
-            new Product { Id = 6, Name = "Forza Horizon 5", Description = "Édition standard.", Price = 24.9m, Stock = 0, CategoryId = 3, CreatedAt = DateTime.Parse("2026-09-15T08:05:00Z"), CategoryName = "Xbox Series X" },
-            new Product { Id = 7, Name = "Baldur’s Gate 3", Description = "Clé physique, coffret collector.", Price = 44.9m, Stock = 1, CategoryId = 4, CreatedAt = DateTime.Parse("2026-09-18T17:40:00Z"), CategoryName = "PC" },
-            new Product { Id = 8, Name = "Hades", Description = null, Price = 9.9m, Stock = 6, CategoryId = 4, CreatedAt = DateTime.Parse("2026-09-21T13:10:00Z"), CategoryName = "PC" }
-        };
+            _db = db;
+        }
+
+        private static ProductResponse ToResponse(Product p) =>
+            new(p.Id, p.Name, p.Description, p.Price, p.Stock, p.CategoryId, p.CreatedAt, p.Category.Name);
 
         [HttpGet]
-        public List<Product> GetProducts()
+        public async Task<ActionResult<List<ProductResponse>>> GetProducts()
         {
-            return _products;
+            var products = await _db.Products
+                .AsNoTracking()
+                .Include(p => p.Category)
+                .OrderBy(p => p.Id)
+                .ToListAsync();
+
+            return Ok(products.Select(ToResponse).ToList());
         }
 
         [HttpPost]
-        public IActionResult CreateProduct(Product newProduct)
+        public async Task<ActionResult<ProductResponse>> CreateProduct(ProductRequest request)
         {
-            newProduct.Id = _products.Any() ? _products.Max(p => p.Id) + 1 : 1;
-            newProduct.CreatedAt = DateTime.UtcNow;
-            newProduct.CategoryName = CategoriesController.Categories
-                .FirstOrDefault(c => c.Id == newProduct.CategoryId)?.Name;
-            _products.Add(newProduct);
-            return Ok(newProduct);
+            var category = await _db.Categories.FindAsync(request.CategoryId);
+            if (category == null)
+                return BadRequest(new { message = "Catégorie inconnue." });
+
+            var product = new Product
+            {
+                Name = request.Name,
+                Description = request.Description,
+                Price = request.Price,
+                Stock = request.Stock,
+                CategoryId = request.CategoryId,
+                Category = category,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.Products.Add(product);
+            await _db.SaveChangesAsync();
+
+            return Ok(ToResponse(product));
         }
 
         [HttpPut("{id}")]
-        public IActionResult UpdateProduct(int id, Product updatedProduct)
+        public async Task<ActionResult<ProductResponse>> UpdateProduct(int id, ProductRequest request)
         {
-            var existing = _products.FirstOrDefault(p => p.Id == id);
-            if (existing == null) return NotFound();
+            var product = await _db.Products
+                .Include(p => p.Category)
+                .FirstOrDefaultAsync(p => p.Id == id);
+            if (product == null) return NotFound();
 
-            existing.Name = updatedProduct.Name;
-            existing.Description = updatedProduct.Description;
-            existing.Price = updatedProduct.Price;
-            existing.Stock = updatedProduct.Stock;
-            existing.CategoryId = updatedProduct.CategoryId;
-            existing.CategoryName = CategoriesController.Categories
-                .FirstOrDefault(c => c.Id == updatedProduct.CategoryId)?.Name;
+            var category = await _db.Categories.FindAsync(request.CategoryId);
+            if (category == null)
+                return BadRequest(new { message = "Catégorie inconnue." });
 
-            return Ok(existing);
+            product.Name = request.Name;
+            product.Description = request.Description;
+            product.Price = request.Price;
+            product.Stock = request.Stock;
+            product.CategoryId = request.CategoryId;
+            product.Category = category;
+
+            await _db.SaveChangesAsync();
+
+            return Ok(ToResponse(product));
         }
 
         [HttpDelete("{id}")]
-        public IActionResult DeleteProduct(int id)
+        public async Task<IActionResult> DeleteProduct(int id)
         {
-            var product = _products.FirstOrDefault(p => p.Id == id);
+            var product = await _db.Products.FindAsync(id);
             if (product == null) return NotFound();
 
-            _products.Remove(product);
+            _db.Products.Remove(product);
+            await _db.SaveChangesAsync();
+
             return NoContent();
         }
-    }
-
-    public class Product
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public decimal Price { get; set; }
-        public int Stock { get; set; }
-        public int CategoryId { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public string? CategoryName { get; set; }
     }
 }

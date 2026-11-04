@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using FTELMarket.Infrastructure;
+using FTELMarket.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace FTELMarket.Controllers
 {
@@ -6,22 +9,23 @@ namespace FTELMarket.Controllers
     [Route("api/categories")]
     public class CategoriesController : ControllerBase
     {
-        public static readonly List<Category> Categories = new()
+        private readonly FtelMarketDbContext _db;
+
+        public CategoriesController(FtelMarketDbContext db)
         {
-            new Category { Id = 1, Name = "PlayStation 5" },
-            new Category { Id = 2, Name = "Nintendo Switch" },
-            new Category { Id = 3, Name = "Xbox Series X" },
-            new Category { Id = 4, Name = "PC" }
-        };
+            _db = db;
+        }
 
         [HttpGet]
-        public List<Category> GetCategories() => Categories;
-    }
+        public async Task<ActionResult<List<CategoryResponse>>> GetCategories()
+        {
+            var categories = await _db.Categories
+                .AsNoTracking()
+                .OrderBy(c => c.Id)
+                .Select(c => new CategoryResponse(c.Id, c.Name))
+                .ToListAsync();
 
-    public class Category
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
+            return Ok(categories);
+        }
     }
 }
-
