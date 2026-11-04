@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 
-namespace FTRLMarket.Controllers
+
+namespace FTELMarket.Controllers
 {
     [ApiController]
     [Route("api/products")]
@@ -29,6 +30,8 @@ namespace FTRLMarket.Controllers
         {
             newProduct.Id = _products.Any() ? _products.Max(p => p.Id) + 1 : 1;
             newProduct.CreatedAt = DateTime.UtcNow;
+            newProduct.CategoryName = CategoriesController.Categories
+                .FirstOrDefault(c => c.Id == newProduct.CategoryId)?.Name;
             _products.Add(newProduct);
             return Ok(newProduct);
         }
@@ -36,12 +39,18 @@ namespace FTRLMarket.Controllers
         [HttpPut("{id}")]
         public IActionResult UpdateProduct(int id, Product updatedProduct)
         {
-            var index = _products.FindIndex(p => p.Id == id);
-            if (index == -1) return NotFound();
+            var existing = _products.FirstOrDefault(p => p.Id == id);
+            if (existing == null) return NotFound();
 
-            updatedProduct.Id = id;
-            _products[index] = updatedProduct;
-            return Ok(updatedProduct);
+            existing.Name = updatedProduct.Name;
+            existing.Description = updatedProduct.Description;
+            existing.Price = updatedProduct.Price;
+            existing.Stock = updatedProduct.Stock;
+            existing.CategoryId = updatedProduct.CategoryId;
+            existing.CategoryName = CategoriesController.Categories
+                .FirstOrDefault(c => c.Id == updatedProduct.CategoryId)?.Name;
+
+            return Ok(existing);
         }
 
         [HttpDelete("{id}")]
@@ -58,12 +67,12 @@ namespace FTRLMarket.Controllers
     public class Product
     {
         public int Id { get; set; }
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public decimal Price { get; set; }
         public int Stock { get; set; }
         public int CategoryId { get; set; }
         public DateTime CreatedAt { get; set; }
-        public string CategoryName { get; set; }
+        public string? CategoryName { get; set; }
     }
 }
