@@ -11,7 +11,7 @@ namespace FTELMarket.Models
         [StringLength(1000)]
         public string? Description { get; set; }
 
-        [Range(typeof(decimal), "0.01", "1000000")]
+        [Range(0, 1000000)]
         public decimal Price { get; set; }
 
         [Range(0, int.MaxValue)]
