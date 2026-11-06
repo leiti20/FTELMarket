@@ -67,22 +67,4 @@ Le front est accessible sur `http://localhost:3000` et appelle l'API
 | DELETE | `/api/products/{id}` | Supprime un produit | 204 (404 si absent) |
 | GET | `/api/categories` | Liste des catégories | 200 |
 
-## Structure du projet
 
-```
-FTELMarket/
-  Controllers/          ProductController.cs, CategoriesController.cs
-  Models/               ProductRequest, ProductResponse, CategoryResponse
-  Infrastructure/
-    Entities/           Product, Category (tables)
-    Configurations/     Configuration Fluent API de chaque table
-    FtelMarketDbContext.cs
-  Migrations/           Migrations Entity Framework
-  Program.cs
-  appsettings.json
-```
-
-
-## Auteur
-
-[Votre nom] – [Votre groupe / promotion]
